@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Echoes - 个人空间</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-color: #F5F3EF;
+      --card-bg: #FFFFFF;
+      --text-main: #333333;
+      --text-sub: #666666;
+      --accent-color: #E67E22; /* 参考图中的橙色日期 */
+      --btn-color: #4A4A4A;
+      --btn-hover: #000000;
+      --border-radius: 16px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.04);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Noto Sans SC', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    /* 布局容器：两栏结构 */
+    .container {
+      display: grid;
+      grid-template-columns: 320px 1fr; /* 左侧固定，右侧自适应 */
+      gap: 30px;
+      width: 100%;
+      max-width: 1100px;
+      align-items: start;
+    }
+
+    /* 通用卡片样式 */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      transition: all 0.3s ease;
+    }
+
+    /* --- 左侧区域 --- */
+    .left-sidebar {
+      position: sticky;
+      top: 40px;
+    }
+
+    /* 左侧：普通用户看到的 Profile */
+    .profile-card {
+      text-align: center;
+    }
+    .avatar {
+      width: 80px;
+      height: 80px;
+      background-color: #ddd;
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      background-image: url('https://api.dicebear.com/7.x/avataaars/svg?seed=Nolan'); /* 随机头像 */
+      background-size: cover;
+    }
+    .profile-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+    .profile-bio { font-size: 0.9rem; color: var(--text-sub); line-height: 1.6; }
+    
+    /* 左侧：Admin看到的编辑器 */
+    .editor-card {
+      display: none; /* 默认隐藏，Admin可见 */
+      border: 2px solid var(--accent-color); /* 区分Admin模式 */
+    }
+    .editor-header {
+      font-weight: bold; margin-bottom: 12px; color: var(--accent-color);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .input-title {
+      width: 100%;
+      border: none;
+      background: #F9F9F9;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 1rem;
+      font-weight: 500;
+      outline: none;
+    }
+    /* 修改Quill编辑器的高度 */
+    #editor-container {
+      height: 200px;
+      background: #fff;
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
+    }
+    .ql-toolbar {
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+    .action-btn {
+      width: 100%;
+      margin-top: 15px;
+      padding: 10px;
+      border: none;
+      background: var(--btn-color);
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+    .action-btn:hover { background: var(--btn-hover); }
+    .cancel-edit-btn {
+      background: #ccc;
+      color: #333;
+      margin-top: 8px;
+      display: none; /* 仅在修改模式显示 */
+    }
+
+    /* --- 右侧内容流 --- */
+    .feed-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .feed-item {
+      margin-bottom: 30px;
+      padding-bottom: 30px;
+      border-bottom: 1px dashed #e0e0e0;
+      position: relative;
+    }
+    .feed-item:last-child { border-bottom: none; }
+
+    /* 日期样式（参考图中的橙色小字） */
+    .post-meta {
+      display: flex;
+      align-items: center;
+      font-size: 0.85rem;
+      color: var(--accent-color);
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .post-meta::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--accent-color);
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .post-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin: 0 0 12px 0;
+      color: #2c3e50;
+    }
+
+    .post-content {
+      font-size: 1rem;
+      line-height: 1.7;
+      color: #444;
+    }
+    .post-content img { max-width: 100%; border-radius: 8px; }
+    .post-content blockquote {
+      border-left: 4px solid #ddd;
+      padding-left: 16px;
+      color: #777;
+      margin: 16px 0;
+    }
+
+    /* Admin 操作按钮区域 */
+    .admin-controls {
+      margin-top: 15px;
+      display: none; /* 默认隐藏 */
+      gap: 10px;
+    }
+    .admin-btn {
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      background: #fff;
+      cursor: pointer;
+    }
+    .btn-edit { color: var(--accent-color); border-color: var(--accent-color); }
+    .btn-del { color: #e74c3c; border-color: #e74c3c; }
+
+    /* 全局开关按钮 */
+    .mode-switch {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.1);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      z-index: 100;
+      transition: background 0.3s;
+    }
+    .mode-switch:hover { background: var(--accent-color); color: #fff; }
+
+    /* 移动端适配 */
+    @media (max-width: 768px) {
+      .container { grid-template-columns: 1fr; }
+      .left-sidebar { position: relative; top: 0; margin-bottom: 20px;}
+    }
+  </style>
+</head>
+<body>
+
+  <button class="mode-switch" id="modeSwitch" title="切换Admin模式">⚙️</button>
+
+  <div class="container">
+    
+    <div class="left-sidebar">
+      
+      <div class="card profile-card" id="guestPanel">
+        <div class="avatar"></div>
+        <div class="profile-name">Nolan</div>
+        <div class="profile-bio">
+          New York University Shanghai<br>
+           <br>
+          乐于探索哲学奥秘<br>
+          寻找生命意义<br>
+          热爱前沿科技<br>
+          自由而有趣的灵魂
+        </div>
+      </div>
+
+      <div class="card editor-card" id="adminPanel">
+        <div class="editor-header">
+          <span id="editorModeText">发布新内容</span>
+          <small style="font-weight:normal; cursor:pointer;" onclick="switchMode()">退出Admin</small>
+        </div>
+        <input type="text" id="postTitle" class="input-title" placeholder="输入标题..." autocomplete="off">
+        
+        <div id="editor-container"></div>
+        
+        <input type="hidden" id="editingId" value="">
+
+        <button class="action-btn" id="submitBtn">发布 Echo</button>
+        <button class="action-btn cancel-edit-btn" id="cancelEditBtn">取消修改</button>
+      </div>
+
+    </div>
+
+    <div class="main-feed">
+      <ul class="feed-list" id="feedList">
+        </ul>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  <script>
+    // 1. 初始化 Quill 编辑器
+    var quill = new Quill('#editor-container', {
+      theme: 'snow',
+      placeholder: '写点什么...',
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+          ['link', 'image', 'code-block']
+        ]
+      }
+    });
+
+    // 2. 默认数据
+    const defaultPosts = [
+      {
+        id: 1730390400000,
+        title: "[F1 2024] 维斯塔潘巴西圣保罗雨战一战封神",
+        date: "2025年11月1日 · 周六",
+        content: "<p>那是一场疯狂的雨战，红旗、撞车、安全车接踵而至。但Max展现了惊人的统治力，从第17位起步，最终夺冠。这就是冠军的底蕴。</p>",
+        rawDate: "2025-11-01"
+      },
+      {
+        id: 1730304000000,
+        title: "关于维度的思考",
+        date: "2025年10月31日 · 周五",
+        content: "<p><strong>Sometimes</strong>, I think the world is a higher dimensional one, maybe <strong>four-dimension</strong>, and it makes sense.</p><blockquote>Besides the height, depth, and width, we've got another one, it's <strong>time</strong>.</blockquote><p>Time, as an another axis, provides a reasonable explanation for anomalies.</p>",
+        rawDate: "2025-10-31"
+      }
+    ];
+
+    // 配置
+    const ADMIN_PASS = "admin"; // 为了演示方便，密码设为 admin
+    const STORAGE_KEY = "my_echo_blog_data";
+    const AUTH_KEY = "is_admin_mode";
+
+    // 3. 数据存取逻辑
+    function getPosts() {
+      const data = localStorage.getItem(STORAGE_KEY);
+      return data ? JSON.parse(data) : defaultPosts;
+    }
+    
+    function savePosts(posts) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+      renderFeed();
+    }
+
+    function isAdmin() {
+      return localStorage.getItem(AUTH_KEY) === '1';
+    }
+
+    // 4. 渲染逻辑
+    function renderFeed() {
+      const posts = getPosts();
+      // 按时间倒序
+      posts.sort((a, b) => b.id - a.id);
+
+      const list = document.getElementById('feedList');
+      list.innerHTML = '';
+
+      const adminMode = isAdmin();
+
+      posts.forEach(post => {
+        const li = document.createElement('li');
+        li.className = 'feed-item';
+        
+        // 生成Admin操作栏HTML
+        const adminControls = adminMode ? `
+          <div class="admin-controls" style="display:flex;">
+            <button class="admin-btn btn-edit" onclick="editPost(${post.id})">编辑</button>
+            <button class="admin-btn btn-del" onclick="deletePost(${post.id})">删除</button>
+          </div>
+        ` : '';
+
+        li.innerHTML = `
+          <div class="post-meta">${post.date}</div>
+          <h2 class="post-title">${post.title}</h2>
+          <div class="post-content">${post.content}</div>
+          ${adminControls}
+        `;
+        list.appendChild(li);
+      });
+
+      updateUIState();
+    }
+
+    // 5. 界面状态管理 (Admin vs Guest)
+    function updateUIState() {
+      const isAdm = isAdmin();
+      const guestPanel = document.getElementById('guestPanel');
+      const adminPanel = document.getElementById('adminPanel');
+      
+      if (isAdm) {
+        guestPanel.style.display = 'none';
+        adminPanel.style.display = 'block';
+      } else {
+        guestPanel.style.display = 'block';
+        adminPanel.style.display = 'none';
+      }
+    }
+
+    // 6. 切换模式
+    function switchMode() {
+      if (isAdmin()) {
+        localStorage.setItem(AUTH_KEY, '0');
+        // 退出时清空编辑器
+        resetEditor(); 
+        renderFeed();
+      } else {
+        const pwd = prompt("请输入Admin密码:");
+        if (pwd === ADMIN_PASS) {
+          localStorage.setItem(AUTH_KEY, '1');
+          renderFeed();
+        } else if (pwd !== null) {
+          alert("密码错误");
+        }
+      }
+    }
+    
+    document.getElementById('modeSwitch').onclick = switchMode;
+
+    // 7. 增删改查核心逻辑
+
+    // 格式化日期
+    function formatDate(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = dateObj.getMonth() + 1;
+      const d = dateObj.getDate();
+      const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+      const week = weekDays[dateObj.getDay()];
+      return `${y}年${m}月${d}日 · 周${week}`;
+    }
+
+    // 提交（新增或修改）
+    document.getElementById('submitBtn').onclick = function() {
+      const title = document.getElementById('postTitle').value.trim();
+      const content = quill.root.innerHTML;
+      const textContent = quill.getText().trim();
+      const editingId = document.getElementById('editingId').value;
+
+      if (!title || !textContent) {
+        alert("标题和内容不能为空");
+        return;
+      }
+
+      let posts = getPosts();
+
+      if (editingId) {
+        // --- 修改模式 ---
+        const index = posts.findIndex(p => p.id == editingId);
+        if (index !== -1) {
+          posts[index].title = title;
+          posts[index].content = content;
+          // 修改时不更新日期，或者你可以选择更新
+          alert("修改成功！");
+        }
+      } else {
+        // --- 新增模式 ---
+        const now = new Date();
+        const newPost = {
+          id: Date.now(),
+          title: title,
+          date: formatDate(now),
+          content: content,
+          rawDate: now.toISOString().split('T')[0]
+        };
+        posts.unshift(newPost);
+      }
+
+      savePosts(posts);
+      resetEditor();
+    };
+
+    // 编辑功能：将内容回填到左侧编辑器
+    window.editPost = function(id) {
+      const posts = getPosts();
+      const post = posts.find(p => p.id === id);
+      if (!post) return;
+
+      // 填充数据
+      document.getElementById('postTitle').value = post.title;
+      quill.root.innerHTML = post.content;
+      document.getElementById('editingId').value = post.id;
+      
+      // UI 变更
+      document.getElementById('editorModeText').textContent = "修改内容";
+      document.getElementById('submitBtn').textContent = "保存修改";
+      document.getElementById('cancelEditBtn').style.display = "block";
+      
+      // 滚动到顶部方便编辑
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // 删除功能
+    window.deletePost = function(id) {
+      if(!confirm("确定要删除这条内容吗？")) return;
+      let posts = getPosts();
+      posts = posts.filter(p => p.id !== id);
+      savePosts(posts);
+      
+      // 如果正在编辑的恰好是被删除的，重置编辑器
+      if(document.getElementById('editingId').value == id) {
+        resetEditor();
+      }
+    };
+
+    // 重置编辑器状态
+    function resetEditor() {
+      document.getElementById('postTitle').value = '';
+      quill.root.innerHTML = '';
+      document.getElementById('editingId').value = '';
+      document.getElementById('editorModeText').textContent = "发布新内容";
+      document.getElementById('submitBtn').textContent = "发布 Echo";
+      document.getElementById('cancelEditBtn').style.display = "none";
+    }
+
+    document.getElementById('cancelEditBtn').onclick = resetEditor;
+
+    // 初始化运行
+    renderFeed();
+
+  </script>
+</body>
+</html>
